@@ -12,7 +12,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# Custom CSS untuk menyamai nuansa hangat & profesional (seperti gambar referensi)
+# Custom CSS - MEMPERBAIKI PARAMETER UNSAFE_HTML PADA BARIS INI
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
@@ -250,7 +250,7 @@ def main():
     
     # Radio Menu Selector Horizontal Elegan
     input_method = st.radio(
-        "Pilih Metode Pemeriksaan Skrining:",
+        "Pilih Metode Examination Skrining:",
         ["📤 Unggah File Foto Wajah", "📸 Gunakan Fitur Live Kamera"],
         horizontal=True
     )
