@@ -12,10 +12,10 @@ st.set_page_config(
     layout="wide"
 )
 
-# Custom CSS - MEMPERBAIKI PARAMETER UNSAFE_HTML PADA BARIS INI
+# SEKARANG MENGGUNAKAN unsafe_allow_html=True (SUDAH DIPERBAIKI)
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght=400;500;600;700&display=swap');
     
     html, body, [data-testid="stSidebarUserContent"] {
         font-family: 'Poppins', sans-serif;
@@ -59,7 +59,7 @@ st.markdown("""
         margin-bottom: 10px;
     }
     </style>
-""", unsafe_html=True)
+""", unsafe_allow_html=True)
 
 # 2. Inisialisasi Session State
 if 'captured_image' not in st.session_state:
@@ -170,7 +170,7 @@ def draw_boxes(image, detections):
 
 # 6. Komponen Tampilan Hasil Diagnosa yang Rapi
 def tampilkan_hasil_diagnosa(status):
-    st.markdown('<div style="margin-top:20px;"></div>', unsafe_html=True)
+    st.markdown('<div style="margin-top:20px;"></div>', unsafe_allow_html=True)
     st.markdown("### 📊 Hasil Analisis Citra")
     if status == "STRABISMUS (JULING)":
         st.error(f"🚨 **DIAGNOSA AWAL: {status}**")
@@ -185,7 +185,7 @@ def tampilkan_hasil_diagnosa(status):
 # 7. Halaman Live Camera (Kompatibel Penuh dengan Streamlit Cloud)
 def live_camera_page(detector, classifier):
     st.markdown('<div class="content-card"><h3>📸 Pemindaian via Live Kamera</h3>'
-                '<p style="color: #666; margin: 0;">Berikan izin akses kamera pada browser Anda. Posisikan mata lurus menatap lensa frame kamera.</p></div>', unsafe_html=True)
+                '<p style="color: #666; margin: 0;">Berikan izin akses kamera pada browser Anda. Posisikan mata lurus menatap lensa frame kamera.</p></div>', unsafe_allow_html=True)
     
     img_file = st.camera_input("Klik tombol jepret di bawah saat posisi mata sudah pas")
     
@@ -208,7 +208,7 @@ def live_camera_page(detector, classifier):
 # 8. Halaman Unggah File Foto
 def upload_page(detector, classifier):
     st.markdown('<div class="content-card"><h3>📤 Unggah Dokumen Foto</h3>'
-                '<p style="color: #666; margin: 0;">Gunakan foto beresolusi tajam dengan pencahayaan yang cukup cerah dari depan wajah.</p></div>', unsafe_html=True)
+                '<p style="color: #666; margin: 0;">Gunakan foto beresolusi tajam dengan pencahayaan yang cukup cerah dari depan wajah.</p></div>', unsafe_allow_html=True)
     
     uploaded_file = st.file_uploader(
         "Pilih dokumen gambar",
@@ -240,7 +240,7 @@ def main():
             <div class="hero-title">👁️ YUK DETEKSI DINI MATA KAMU</div>
             <div class="hero-subtitle">Gunakan teknologi skrining cerdas berbasis kecerdasan buatan (AI) untuk menganalisis simetris arah bola mata dan indikasi strabismus secara instan.</div>
         </div>
-    """, unsafe_html=True)
+    """, unsafe_allow_html=True)
     
     detector, classifier = load_models()
     
@@ -255,7 +255,7 @@ def main():
         horizontal=True
     )
     
-    st.markdown('<div style="margin-top: 15px;"></div>', unsafe_html=True)
+    st.markdown('<div style="margin-top: 15px;"></div>', unsafe_allow_html=True)
     
     if "Unggah File" in input_method:
         upload_page(detector, classifier)
@@ -269,7 +269,7 @@ def main():
         '<strong>Pemberitahuan:</strong> Aplikasi ini dirancang sebagai instrumen skrining mandiri awal. '
         'Hasil pengujian tidak dapat dijadikan basis mutlak pengganti diagnosis klinis kedokteran mata.'
         '</div>', 
-        unsafe_html=True
+        unsafe_allow_html=True
     )
 
 if __name__ == "__main__":
