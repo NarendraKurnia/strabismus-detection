@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 1
+names: ['Eyes']
+
+roboflow:
+  workspace: narend-d1zf8
+  project: eye-detection-8c336-3jc9w
+  version: 1
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/narend-d1zf8/eye-detection-8c336-3jc9w/dataset/1
