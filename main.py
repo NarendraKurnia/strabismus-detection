@@ -1,21 +1,65 @@
-# app.py
 import streamlit as st
 import cv2
 import numpy as np
 from ultralytics import YOLO
 from PIL import Image
-import tempfile
-import os
 from pathlib import Path
 
-# Konfigurasi halaman
+# 1. Konfigurasi Halaman & Gaya Kustom (Elegan & Modern)
 st.set_page_config(
-    page_title="Deteksi Mata Juling",
+    page_title="Deteksi Mata Juling - AI Screening",
     page_icon="👁️",
     layout="wide"
 )
 
-# Load models
+# Custom CSS untuk menyamai nuansa warna hangat & profesional (seperti gambar referensi)
+st.markdown("""
+    <style>
+    /* Mengubah font global dan background card */
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+    
+    html, body, [data-testid="stSidebarUserContent"] {
+        font-family: 'Poppins', sans-serif;
+    }
+    
+    /* Banner Header bergaya pastel cream seperti gambar */
+    .hero-banner {
+        background-color: #FCE6A4;
+        padding: 30px;
+        border-radius: 15px;
+        margin-bottom: 25px;
+        border-left: 8px solid #D4A373;
+    }
+    .hero-title {
+        color: #4A3E3D;
+        font-size: 32px;
+        font-weight: 700;
+        margin-bottom: 5px;
+    }
+    .hero-subtitle {
+        color: #6B5B52;
+        font-size: 16px;
+    }
+    
+    /* Desain Card Berwarna Putih Bersih */
+    .content-card {
+        background-color: #FFFFFF;
+        padding: 25px;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        margin-bottom: 20px;
+        border: 1px solid #EAEAEA;
+    }
+    
+    /* Mempercantik tampilan Radio Button Input */
+    div[data-testid="stRadio"] > label {
+        font-weight: bold;
+        color: #4A3E3D;
+    }
+    </style>
+""", unsafe_unsafe_html=True)
+
+# 2. Load Models dengan Cache
 @st.cache_resource
 def load_models():
     BASE_DIR = Path(__file__).resolve().parent if "__file__" in globals() else Path.cwd()
@@ -30,12 +74,11 @@ def load_models():
         st.error(f"Gagal memuat model: {e}")
         return None, None
 
-# Deteksi mata dan klasifikasi
+# 3. Core Engine: Deteksi mata dan klasifikasi
 def detect_and_classify(image, detector, classifier):
     hasil_deteksi = []
     status = "NORMAL"
     
-    # Deteksi area mata
     results_det = detector.predict(image, conf=0.15, verbose=False)
     regions = []
     
@@ -45,7 +88,6 @@ def detect_and_classify(image, detector, classifier):
             regions.append([x1, y1, x2, y2])
     
     if not regions:
-        # Fallback ke Haar Cascade
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_eye.xml')
         eyes = eye_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
@@ -55,11 +97,8 @@ def detect_and_classify(image, detector, classifier):
     if not regions:
         return hasil_deteksi, "TIDAK TERDETEKSI"
     
-    # Ambil area strip mata
-    min_x = min([r[0] for r in regions])
-    min_y = min([r[1] for r in regions])
-    max_x = max([r[2] for r in regions])
-    max_y = max([r[3] for r in regions])
+    min_x, min_y = min([r[0] for r in regions]), min([r[1] for r in regions])
+    max_x, max_y = max([r[2] for r in regions]), max([r[3] for r in regions])
     
     pad_x, pad_y = 20, 20
     strip_x1 = max(0, min_x - pad_x)
@@ -69,7 +108,6 @@ def detect_and_classify(image, detector, classifier):
     
     strip_img = image[strip_y1:strip_y2, strip_x1:strip_x2]
     
-    # Klasifikasi
     results_cls = classifier.predict(strip_img, conf=0.3, verbose=False)
     
     if len(results_cls[0].boxes) > 0:
@@ -79,10 +117,8 @@ def detect_and_classify(image, detector, classifier):
             label_name = classifier.names[class_id].upper()
             conf_score = float(box.conf[0])
             
-            abs_x1 = bx1 + strip_x1
-            abs_y1 = by1 + strip_y1
-            abs_x2 = bx2 + strip_x1
-            abs_y2 = by2 + strip_y1
+            abs_x1, abs_y1 = bx1 + strip_x1, by1 + strip_y1
+            abs_x2, abs_y2 = bx2 + strip_x1, by2 + strip_y1
             
             hasil_deteksi.append({
                 'box': [abs_x1, abs_y1, abs_x2, abs_y2],
@@ -102,7 +138,6 @@ def detect_and_classify(image, detector, classifier):
     
     return hasil_deteksi, status
 
-# Gambar bounding box
 def draw_boxes(image, detections):
     img_copy = image.copy()
     for d in detections:
@@ -111,210 +146,118 @@ def draw_boxes(image, detections):
         conf = d['conf']
         
         warna = (0, 0, 255) if "JULING" in label or "STRABISMUS" in label else (0, 255, 0)
-        
-        cv2.rectangle(img_copy, (x1, y1), (x2, y2), warna, 2)
+        cv2.rectangle(img_copy, (x1, y1), (x2, y2), warna, 3)
         text_label = f"{label} {conf:.1%}" if conf > 0 else label
         
-        (tw, th), _ = cv2.getTextSize(text_label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 1)
-        cv2.rectangle(img_copy, (x1, y1 - 25), (x1 + tw, y1), warna, -1)
-        cv2.putText(img_copy, text_label, (x1, y1 - 7),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1, cv2.LINE_AA)
-    
+        (tw, th), _ = cv2.getTextSize(text_label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)
+        cv2.rectangle(img_copy, (x1, y1 - 30), (x1 + tw, y1), warna, -1)
+        cv2.putText(img_copy, text_label, (x1, y1 - 8),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2, cv2.LINE_AA)
     return img_copy
 
-# Halaman Live Camera dengan ROI
+# 4. Halaman Live Camera Menggunakan Kamera Browser Native (Stabil & Mendukung Cloud)
 def live_camera_page(detector, classifier):
-    st.subheader("📸 Live Camera Detection")
+    st.markdown('<div class="content-card"><h3>📸 Ambil Foto via Live Camera</h3>'
+                '<p style="color: #666;">Izinkan browser mengakses kamera Anda. Pastikan wajah berada tepat di tengah frame.</p></div>', unsafe_html=True)
     
-    # Area ROI (mata)
-    roi_width = 400
-    roi_height = 200
+    img_file = st.camera_input("Arahkan pandangan mata Anda lurus ke kamera")
     
-    # Inisialisasi kamera
-    camera = cv2.VideoCapture(0)
-    
-    # Placeholder untuk video
-    frame_placeholder = st.empty()
-    warning_placeholder = st.empty()
-    status_placeholder = st.empty()
-    
-    capture_button = st.button("📸 Ambil Foto", disabled=True, key="capture_btn")
-    captured_image = st.session_state.get('captured_image', None)
-    
-    # Stream video
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("### Preview Kamera")
-        video_placeholder = st.empty()
-    
-    with col2:
-        st.markdown("### Hasil Deteksi")
-        result_placeholder = st.empty()
-    
-    stop_btn = st.button("⏹️ Stop Kamera")
-    
-    face_detector = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-    
-    while not stop_btn and camera.isOpened():
-        ret, frame = camera.read()
-        if not ret:
-            st.error("Gagal mengakses kamera")
-            break
+    if img_file is not None:
+        bytes_data = img_file.getvalue()
+        cv_image = cv2.imdecode(np.frombuffer(bytes_data, np.uint8), cv2.IMREAD_COLOR)
         
-        frame = cv2.flip(frame, 1)
-        height, width = frame.shape[:2]
-        
-        # Posisi ROI di tengah
-        roi_x = (width - roi_width) // 2
-        roi_y = (height - roi_height) // 2
-        
-        # Deteksi wajah
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        faces = face_detector.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(100, 100))
-        
-        # Gambar ROI
-        overlay = frame.copy()
-        cv2.rectangle(overlay, (roi_x, roi_y), (roi_x + roi_width, roi_y + roi_height), (0, 255, 0), 3)
-        cv2.putText(overlay, "AREA MATA", (roi_x + 10, roi_y - 10),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-        
-        # Cek posisi wajah
-        face_in_roi = False
-        for (fx, fy, fw, fh) in faces:
-            face_center_x = fx + fw // 2
-            face_center_y = fy + fh // 2
-            roi_center_x = roi_x + roi_width // 2
-            roi_center_y = roi_y + roi_height // 2
+        col1, col2 = st.columns(2)
+        with col1:
+            st.image(cv2.cvtColor(cv_image, cv2.COLOR_BGR2RGB), caption="Foto Masuk", use_container_width=True)
             
-            # Deteksi area mata dalam ROI
-            eye_roi = gray[fy:fy+fh, fx:fx+fw]
-            eyes = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_eye.xml').detectMultiScale(eye_roi, 1.1, 5)
-            
-            for (ex, ey, ew, eh) in eyes:
-                eye_abs_x = fx + ex
-                eye_abs_y = fy + ey
-                # Cek apakah mata berada dalam ROI
-                if (roi_x < eye_abs_x + ew and roi_x + roi_width > eye_abs_x and
-                    roi_y < eye_abs_y + eh and roi_y + roi_height > eye_abs_y):
-                    face_in_roi = True
-                    cv2.rectangle(overlay, (fx, fy), (fx+fw, fy+fh), (255, 0, 0), 2)
-                    break
-        
-        if face_in_roi:
-            warning_placeholder.success("✅ Posisi wajah sudah pas! Silakan klik 'Ambil Foto'")
-            capture_button.disabled = False
-        else:
-            warning_placeholder.warning("⚠️ Posisikan wajah Anda di AREA MATA yang tersedia!")
-            capture_button.disabled = True
-        
-        video_placeholder.image(cv2.cvtColor(overlay, cv2.COLOR_BGR2RGB), channels="RGB")
-        
-        # Tombol capture menggunakan session state
-        if st.button("📸 Ambil Foto", key="capture_btn_live"):
-            st.session_state.captured_image = frame.copy()
-            captured_image = frame.copy()
-            break
-        
-        # Update tombol stop setiap iterasi
-        if st.button("⏹️ Stop Kamera", key="stop_btn_live"):
-            break
-    
-    camera.release()
-    
-    # Proses hasil capture
-    if captured_image is not None:
-        st.success("Gambar berhasil diambil! Memproses...")
-        
-        # Deteksi dan klasifikasi
-        detections, status = detect_and_classify(captured_image, detector, classifier)
-        
-        # Gambar hasil
-        result_img = draw_boxes(captured_image, detections)
-        
-        result_placeholder.image(cv2.cvtColor(result_img, cv2.COLOR_BGR2RGB), channels="RGB")
-        
-        # Tampilkan status
-        if status == "STRABISMUS (JULING)":
-            status_placeholder.error(f"🟡 HASIL: {status}")
-        elif status == "TIDAK TERDETEKSI":
-            status_placeholder.warning(f"⚠️ HASIL: {status} - Tidak dapat mendeteksi mata")
-        else:
-            status_placeholder.success(f"✅ HASIL: {status}")
+        with col2:
+            with st.spinner("Menganalisis posisi mata..."):
+                detections, status = detect_and_classify(cv_image, detector, classifier)
+                result_img = draw_boxes(cv_image, detections)
+                st.image(cv2.cvtColor(result_img, cv2.COLOR_BGR2RGB), caption="Hasil Analisis AI", use_container_width=True)
+                
+            tampilkan_hasil_diagnosa(status)
 
-# Halaman Upload Foto
+# 5. Halaman Upload Foto
 def upload_page(detector, classifier):
-    st.subheader("📤 Upload Foto Wajah")
+    st.markdown('<div class="content-card"><h3>📤 Unggah File Citra Wajah</h3>'
+                '<p style="color: #666;">Gunakan foto berkualitas tinggi dengan pencahayaan terang dari arah depan.</p></div>', unsafe_html=True)
     
     uploaded_file = st.file_uploader(
-        "Pilih foto wajah Anda",
+        "Pilih file gambar Anda",
         type=["jpg", "jpeg", "png", "bmp"],
-        help="Upload foto dengan posisi wajah menghadap kamera"
+        help="Mendukung format JPG, PNG, atau BMP"
     )
     
     if uploaded_file is not None:
-        # Baca gambar
         file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
         image = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
         
         col1, col2 = st.columns(2)
-        
         with col1:
             st.image(cv2.cvtColor(image, cv2.COLOR_BGR2RGB), caption="Foto Asli", use_container_width=True)
         
         with col2:
-            # Proses deteksi
             with st.spinner("Memproses deteksi mata..."):
                 detections, status = detect_and_classify(image, detector, classifier)
                 result_img = draw_boxes(image, detections)
                 st.image(cv2.cvtColor(result_img, cv2.COLOR_BGR2RGB), caption="Hasil Deteksi", use_container_width=True)
             
-            # Tampilkan hasil
-            st.markdown("---")
-            st.markdown("### 📊 Hasil Screening")
-            
-            if status == "STRABISMUS (JULING)":
-                st.error(f"🟡 DIAGNOSA: {status}")
-                st.warning("⚠️ Disarankan untuk berkonsultasi dengan dokter mata")
-            elif status == "TIDAK TERDETEKSI":
-                st.warning(f"⚠️ {status} - Pastikan mata terlihat jelas dalam foto")
-            else:
-                st.success(f"✅ DIAGNOSA: {status}")
-                st.info("👁️ Mata Anda terdeteksi normal")
+            tampilkan_hasil_diagnosa(status)
 
-# Main App
+# Helper untuk mempercantik box hasil diagnosis
+def tampilkan_hasil_diagnosa(status):
+    st.markdown("---")
+    st.markdown("### 📊 Hasil Resmi Screening")
+    if status == "STRABISMUS (JULING)":
+        st.error(f"🚨 **DIAGNOSA AWAL: {status}**")
+        st.warning("⚠️ **Rekomendasi:** Hasil ini mendeteksi adanya indikasi deviasi mata. Sangat disarankan untuk melakukan pemeriksaan komprehensif ke Dokter Spesialis Mata (Oftalmolog).")
+    elif status == "TIDAK TERDETEKSI":
+        st.warning(f"🔍 **STATUS: {status}**")
+        st.info("Pastikan wajah menghadap lurus ke depan, area mata tidak tertutup kacamata/rambut, dan pencahayaan mencukupi.")
+    else:
+        st.success(f"✅ **DIAGNOSA AWAL: {status} (Kondisi Normal)**")
+        st.info("👁️ Sistem mendeteksi arah pandang bola mata Anda sejajar dan simetris.")
+
+# 6. Main App Structure
 def main():
-    st.title("👁️ YUK DETEKSI DINI MATA KAMU")
-    st.markdown("Upload foto wajah kamu untuk cek kesehatan mata strabismus (juling)")
+    # Mengaplikasikan Banner Atas Mirip Gambar Desain UI
+    st.markdown("""
+        <div class="hero-banner">
+            <div class="hero-title">👁️ YUK DETEKSI DINI MATA KAMU</div>
+            <div class="hero-subtitle">Unggah foto wajah atau gunakan kamera langsung untuk mengecek indikasi kesehatan mata strabismus (juling).</div>
+        </div>
+    """, unsafe_html=True)
     
-    # Load models
     detector, classifier = load_models()
     
     if detector is None or classifier is None:
-        st.error("Model tidak dapat dimuat. Pastikan file model tersedia di folder 'models'")
-        st.info("Folder struktur yang diharapkan:\n- models/model_mata.pt\n- models/model_juling.pt")
+        st.error("Sistem gagal memuat file bobot model `.pt`. Pastikan direktori `/models` sudah benar.")
         return
     
-    # Pilihan input
+    # Switcher Metode Input Bergaya Modern
     input_method = st.radio(
-        "Pilih metode input:",
-        ["📤 Upload Foto", "📸 Live Camera"],
+        "Pilih Metode Pengambilan Data:",
+        ["📤 Upload Foto Wajah", "📸 Gunakan Live Camera (Browser)"],
         horizontal=True
     )
     
-    if input_method == "📤 Upload Foto":
+    st.markdown('<div style="margin-top: 15px;"></div>', unsafe_html=True)
+    
+    if "Upload Foto" in input_method:
         upload_page(detector, classifier)
     else:
         live_camera_page(detector, classifier)
     
-    # Footer
+    # Footer Informasi Klinis
     st.markdown("---")
-    st.markdown("### ℹ️ Informasi")
-    st.markdown("""
-    - **Deteksi Strabismus (Mata Juling)** menggunakan teknologi AI
-    - Hasil deteksi bersifat screening awal, bukan diagnosis medis
-    - Untuk diagnosis akurat, konsultasikan dengan dokter mata
-    """)
+    st.markdown(
+        '<div style="text-align: center; color: #777; font-size: 13px;">'
+        '<strong>Disclaimer:</strong> Aplikasi ini merupakan alat skrining berbasis kecerdasan buatan (AI) '
+        'dan tidak menggantikan diagnosis medis resmi profesional. © 2026 Deteksi Strabismus AI.'
+        '</div>', 
+        unsafe_html=True
+    )
 
 if __name__ == "__main__":
     main()
