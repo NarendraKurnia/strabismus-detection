@@ -5,6 +5,8 @@ from ultralytics import YOLO
 from PIL import Image
 from pathlib import Path
 
+STATUS_NOT_DETECTED = "TIDAK TERDETEKSI"
+
 # 1. Konfigurasi Halaman & Tema Visual Kustom
 st.set_page_config(
     page_title="Deteksi Mata Juling",
@@ -104,7 +106,7 @@ def detect_and_classify(image, detector, classifier):
             regions.append([x, y, x + w, y + h])
     
     if not regions:
-        return hasil_deteksi, "TIDAK TERDETEKSI"
+        return hasil_deteksi, STATUS_NOT_DETECTED
     
     # Ambil koordinat pembatas terkecil dan terbesar
     min_x, min_y = min([r[0] for r in regions]), min([r[1] for r in regions])
@@ -174,7 +176,7 @@ def tampilkan_hasil_diagnosa(status):
     if status == "STRABISMUS (JULING)":
         st.error(f"🚨 **DIAGNOSA AWAL: {status}**")
         st.warning("⚠️ **Rekomendasi:** Deteksi cermin AI mendeteksi adanya indikasi sudut juling pada mata. Disarankan untuk melakukan pemeriksaan bersama Dokter Spesialis Mata.")
-    elif status == "TIDAK TERDETEKSI":
+    elif status == STATUS_NOT_DETECTED:
         st.warning(f"🔍 **STATUS: {status}**")
         st.info("Sistem kesulitan menemukan posisi mata Anda dengan jelas. Pastikan wajah tegak lurus menghadap kamera tanpa terhalang rambut atau kacamata")
     else:
@@ -184,7 +186,7 @@ def tampilkan_hasil_diagnosa(status):
 # 7. Halaman Live Camera (Kompatibel Penuh Cloud, Mirror Mode, dan Area Wajah)
 def live_camera_page(detector, classifier):
     st.markdown('<div class="content-card"><h3>📸 Deteksi langsung melalui live kamera</h3>'
-                '<p style="color: #666; margin: 0;">Berikan izin akses kamera. Posisikan wajah Anda tepat di dalam <strong>Area Wajah (Kotak Teal)</strong> dan mata di dalam Kotak Putih.</p></div>', unsafe_allow_html=True)
+                '<p style="color: #666; margin: 0;">Berikan izin akses kamera. Posisikan wajah Anda tepat di dalam <strong>Area Wajah (Kotak Teal)</strong>.</p></div>', unsafe_allow_html=True)
     
     # Input Kamera Browser Native
     img_file = st.camera_input("Arahkan pandangan mata Anda lurus ke kamera")
@@ -198,7 +200,7 @@ def live_camera_page(detector, classifier):
         # Menjadikan Live Cam terasa natural seperti cermin
         cv_image_mirrored = cv2.flip(cv_image, 1)
         
-        # 3. PERUBAHAN UTAMA: DETEKSI AREA WAJAH & MATA PADA PREVIEW
+    # 3. PERUBAHAN UTAMA: DETEKSI AREA WAJAH PADA PREVIEW
         # Mendapatkan dimensi gambar untuk membuat overlay
         h, w = cv_image_mirrored.shape[:2]
         cv_image_with_areas = cv_image_mirrored.copy()
@@ -207,21 +209,11 @@ def live_camera_page(detector, classifier):
         face_roi_w, face_roi_h = int(w * 0.5), int(h * 0.7) # Kotak wajah 50% lebar, 70% tinggi
         face_roi_x, face_roi_y = (w - face_roi_w) // 2, (h - face_roi_h) // 2 # Centered
         
-        # Definisi Kotak Target Area Mata (Putih) - Lebih spesifik
-        eye_roi_w, eye_roi_h = int(w * 0.35), int(h * 0.22) # Kotak mata 35% lebar, 22% tinggi
-        eye_roi_x, eye_roi_y = (w - eye_roi_w) // 2, int(h * 0.28) # Posisi mata lebih ke atas
-        
         # Menggambar Kotak Area Wajah (Teal)
         cv2.rectangle(cv_image_with_areas, (face_roi_x, face_roi_y), 
                       (face_roi_x + face_roi_w, face_roi_y + face_roi_h), (255, 255, 0), 4) # Teal/Cyan
         cv2.putText(cv_image_with_areas, "AREA WAJAH", (face_roi_x + 10, face_roi_y + 35),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 0), 2, cv2.LINE_AA)
-        
-        # Menggambar Kotak Area Mata (Putih)
-        cv2.rectangle(cv_image_with_areas, (eye_roi_x, eye_roi_y), 
-                      (eye_roi_x + eye_roi_w, eye_roi_y + eye_roi_h), (255, 255, 255), 3) # Putih
-        cv2.putText(cv_image_with_areas, "AREA MATA", (eye_roi_x + 10, eye_roi_y + 30),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2, cv2.LINE_AA)
         
         # Layout Kolom Preview dan Hasil
         col1, col2 = st.columns(2)
@@ -231,10 +223,23 @@ def live_camera_page(detector, classifier):
             
         with col2:
             with st.spinner("Sistem sedang memetakan geometri mata Anda..."):
-                # Menjalankan Diagnosa pada gambar ber-mirror (tanpa kotak overlay)
-                detections, status = detect_and_classify(cv_image_mirrored, detector, classifier)
-                
-                # Menggambar hasil bounding box 
+                # Menjalankan Diagnosa hanya di dalam Area Wajah (ROI manual)
+                roi_img = cv_image_mirrored[face_roi_y:face_roi_y + face_roi_h,
+                                            face_roi_x:face_roi_x + face_roi_w]
+
+                if roi_img.size == 0:
+                    detections, status = [], STATUS_NOT_DETECTED
+                else:
+                    detections, status = detect_and_classify(roi_img, detector, classifier)
+
+                    # Konversi koordinat ROI ke koordinat asli gambar
+                    for d in detections:
+                        d['box'][0] += face_roi_x
+                        d['box'][1] += face_roi_y
+                        d['box'][2] += face_roi_x
+                        d['box'][3] += face_roi_y
+
+                # Menggambar hasil bounding box
                 result_img = draw_boxes(cv_image_mirrored, detections)
                 st.image(cv2.cvtColor(result_img, cv2.COLOR_BGR2RGB), caption="Hasil Analisis", use_container_width=True)
                 
