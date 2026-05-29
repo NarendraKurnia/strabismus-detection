@@ -7,7 +7,7 @@ from pathlib import Path
 
 # 1. Konfigurasi Halaman & Tema Visual Kustom
 st.set_page_config(
-    page_title="Deteksi Mata Juling - AI Mirror Screening",
+    page_title="Deteksi Mata Juling",
     page_icon="👁️",
     layout="wide"
 )
@@ -96,7 +96,6 @@ def detect_and_classify(image, detector, classifier):
             x1, y1, x2, y2 = box.xyxy[0].cpu().numpy().astype(int)
             regions.append([x1, y1, x2, y2])
     
-    # Fallback ke Haar Cascade jika YOLO gagal mendeteksi
     if not regions:
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_eye.xml')
@@ -171,24 +170,24 @@ def draw_boxes(image, detections):
 # 6. Komponen Tampilan Hasil Diagnosa yang Rapi
 def tampilkan_hasil_diagnosa(status):
     st.markdown('<div style="margin-top:20px;"></div>', unsafe_allow_html=True)
-    st.markdown("### 📊 Hasil Analisis Cermin AI")
+    st.markdown("### 📊 Hasil Analisis ")
     if status == "STRABISMUS (JULING)":
         st.error(f"🚨 **DIAGNOSA AWAL: {status}**")
-        st.warning("⚠️ **Rekomendasi Ahli:** Deteksi cermin AI mendeteksi adanya indikasi sudut juling pada mata. Disarankan untuk menjadwalkan pemeriksaan menyeluruh bersama Dokter Spesialis Mata.")
+        st.warning("⚠️ **Rekomendasi:** Deteksi cermin AI mendeteksi adanya indikasi sudut juling pada mata. Disarankan untuk melakukan pemeriksaan bersama Dokter Spesialis Mata.")
     elif status == "TIDAK TERDETEKSI":
         st.warning(f"🔍 **STATUS: {status}**")
-        st.info("Sistem kesulitan memetakan posisi mata Anda dengan jelas. Pastikan wajah tegak lurus menghadap kamera tanpa terhalang rambut atau kacamata reflektif.")
+        st.info("Sistem kesulitan menemukan posisi mata Anda dengan jelas. Pastikan wajah tegak lurus menghadap kamera tanpa terhalang rambut atau kacamata")
     else:
         st.success(f"✅ **DIAGNOSA AWAL: {status} (Kondisi Normal)**")
-        st.info("👁️ Cermin AI mendeteksi sumbu bola mata kanan dan kiri Anda sejajar serta simetris.")
+        st.info("👁️ Sumbu bola mata kanan dan kiri Anda sejajar serta simetris.")
 
 # 7. Halaman Live Camera (Kompatibel Penuh Cloud, Mirror Mode, dan Area Wajah)
 def live_camera_page(detector, classifier):
-    st.markdown('<div class="content-card"><h3>📸 Pemindaian via Live Cermin AI</h3>'
+    st.markdown('<div class="content-card"><h3>📸 Deteksi langsung melalui live kamera</h3>'
                 '<p style="color: #666; margin: 0;">Berikan izin akses kamera. Posisikan wajah Anda tepat di dalam <strong>Area Wajah (Kotak Teal)</strong> dan mata di dalam Kotak Putih.</p></div>', unsafe_allow_html=True)
     
     # Input Kamera Browser Native
-    img_file = st.camera_input("Arahkan pandangan mata Anda lurus ke 'Cermin' Cerdas ini")
+    img_file = st.camera_input("Arahkan pandangan mata Anda lurus ke kamera")
     
     if img_file is not None:
         # 1. Konversi ke Format OpenCV
@@ -228,23 +227,23 @@ def live_camera_page(detector, classifier):
         col1, col2 = st.columns(2)
         with col1:
             # Menampilkan Preview berkotak (dan sudah di-mirror)
-            st.image(cv2.cvtColor(cv_image_with_areas, cv2.COLOR_BGR2RGB), caption="Preview 'Cermin' Cerdas", use_container_width=True)
+            st.image(cv2.cvtColor(cv_image_with_areas, cv2.COLOR_BGR2RGB), caption="Preview", use_container_width=True)
             
         with col2:
-            with st.spinner("Cermin AI sedang memetakan geometri simetris mata Anda..."):
+            with st.spinner("Sistem sedang memetakan geometri mata Anda..."):
                 # Menjalankan Diagnosa pada gambar ber-mirror (tanpa kotak overlay)
                 detections, status = detect_and_classify(cv_image_mirrored, detector, classifier)
                 
-                # Menggambar hasil bounding box AI (juga pada gambar ber-mirror)
+                # Menggambar hasil bounding box 
                 result_img = draw_boxes(cv_image_mirrored, detections)
-                st.image(cv2.cvtColor(result_img, cv2.COLOR_BGR2RGB), caption="Hasil Analisis Geometri AI", use_container_width=True)
+                st.image(cv2.cvtColor(result_img, cv2.COLOR_BGR2RGB), caption="Hasil Analisis", use_container_width=True)
                 
             tampilkan_hasil_diagnosa(status)
 
 # 8. Halaman Unggah File Foto
 def upload_page(detector, classifier):
     st.markdown('<div class="content-card"><h3>📤 Unggah Dokumen Foto</h3>'
-                '<p style="color: #666; margin: 0;">Gunakan foto beresolusi tajam dengan pencahayaan yang cukup cerah dari depan wajah.</p></div>', unsafe_allow_html=True)
+                '<p style="color: #666; margin: 0;">Gunakan foto beresolusi tajam dengan pencahayaan yang cukup cerah dari depan wajah. Serta posisi wajah lurus ke kamera</p></div>', unsafe_allow_html=True)
     
     uploaded_file = st.file_uploader(
         "Pilih dokumen gambar",
@@ -266,7 +265,7 @@ def upload_page(detector, classifier):
             with st.spinner("Memproses deteksi area mata..."):
                 detections, status = detect_and_classify(image, detector, classifier)
                 result_img = draw_boxes(image, detections)
-                st.image(cv2.cvtColor(result_img, cv2.COLOR_BGR2RGB), caption="Hasil Analisis Geometri", use_container_width=True)
+                st.image(cv2.cvtColor(result_img, cv2.COLOR_BGR2RGB), caption="Hasil Analisis", use_container_width=True)
             
             tampilkan_hasil_diagnosa(status)
 
@@ -276,20 +275,20 @@ def main():
     st.markdown("""
         <div class="hero-banner">
             <div class="hero-title">👁️ YUK DETEKSI DINI MATA KAMU</div>
-            <div class="hero-subtitle">Gunakan teknologi skrining cermin cerdas berbasis kecerdasan buatan (AI) untuk menganalisis simetris arah bola mata dan indikasi strabismus secara instan.</div>
+            <div class="hero-subtitle">Gunakan teknologi skrining secara langsung posisikan wajah anda menghadap ke kamera</div>
         </div>
     """, unsafe_allow_html=True)
     
     detector, classifier = load_models()
     
     if detector is None or classifier is None:
-        st.error("Gagal memuat sistem deteksi pintar. Pastikan file model 'model_mata.pt' dan 'model_juling.pt' berada di dalam direktori folder 'models'.")
+        st.error("Gagal memuat sistem deteksi. Pastikan file model 'model_mata.pt' dan 'model_juling.pt' berada di dalam direktori folder 'models'.")
         return
     
     # Radio Menu Selector Horizontal Elegan
     input_method = st.radio(
         "Pilih Metode Skrining:",
-        ["📤 Unggah File Foto Wajah", "📸 Gunakan Cermin Live AI"],
+        ["📤 Unggah File Foto Wajah", "📸 "],
         horizontal=True
     )
     
@@ -304,8 +303,8 @@ def main():
     st.markdown("---")
     st.markdown(
         '<div style="text-align: center; color: #888; font-size: 13px;">'
-        '<strong>Pemberitahuan:</strong> Aplikasi skrining cermin AI ini merupakan instrumen mandiri awal. '
-        'Hasil pengujian tidak dapat dijadikan basis mutlak pengganti diagnosis klinis kedokteran mata resmi.'
+        '<strong>Pemberitahuan:</strong> Aplikasi skrining ini merupakan deteksi mandiri awal. '
+        'Hasil pengujian tidak dapat dijadikan acuan secara medis bukan sebagai pengganti diagnosis klinis dokter mata.'
         '</div>', 
         unsafe_allow_html=True
     )
