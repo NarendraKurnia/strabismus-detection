@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Aplikasi deteksi dini mata juling (strabismus) menggunakan teknologi AI. Skrining mandiri cepat dan akurat.">
+    <title>Deteksi Mata Juling — Skrining AI</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👁️</text></svg>">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <!-- Hero Banner -->
+    <div class="container">
+        <div class="hero-banner">
+            <div class="hero-title">👁️ YUK DETEKSI DINI MATA KAMU</div>
+            <div class="hero-subtitle">Gunakan teknologi skrining secara langsung posisikan wajah anda menghadap ke kamera</div>
+        </div>
+
+        {% if not models_loaded %}
+        <div class="alert alert-error">
+            ❌ Gagal memuat sistem deteksi. Pastikan file model <strong>model_mata.pt</strong> dan <strong>model_juling.pt</strong> berada di dalam direktori folder <strong>models</strong>.
+        </div>
+        {% else %}
+
+        <!-- Tab Selector -->
+        <div class="tab-selector">
+            <button class="tab-btn active" id="tabUpload" onclick="switchTab('upload')">📤 Unggah File Foto Wajah</button>
+            <button class="tab-btn" id="tabCamera" onclick="switchTab('camera')">📸 Live Camera</button>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- TAB: Upload Foto -->
+        <!-- ============================================================ -->
+        <div id="uploadSection" class="tab-content active">
+            <div class="content-card">
+                <h3>📤 Unggah Dokumen Foto</h3>
+                <p class="card-subtitle">Gunakan foto beresolusi tajam dengan pencahayaan yang cukup cerah dari depan wajah. Serta posisi wajah lurus ke kamera</p>
+                
+                <div class="upload-area" id="uploadDropZone">
+                    <input type="file" id="fileInput" accept="image/jpeg,image/png,image/bmp,image/jpg" hidden>
+                    <div class="upload-icon">📁</div>
+                    <p class="upload-text">Klik atau seret file gambar ke sini</p>
+                    <p class="upload-hint">Format: JPG, JPEG, PNG, BMP</p>
+                </div>
+            </div>
+
+            <!-- Hasil Upload -->
+            <div id="uploadResults" class="results-container" style="display: none;">
+                <div class="results-grid">
+                    <div class="result-col">
+                        <h4>Foto Asli</h4>
+                        <img id="uploadOriginal" class="result-image" alt="Foto asli">
+                    </div>
+                    <div class="result-col">
+                        <h4>Hasil Analisis</h4>
+                        <img id="uploadResult" class="result-image" alt="Hasil analisis">
+                    </div>
+                </div>
+                <div id="uploadDiagnosa" class="diagnosa-section"></div>
+            </div>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- TAB: Live Camera -->
+        <!-- ============================================================ -->
+        <div id="cameraSection" class="tab-content">
+            <div class="content-card">
+                <h3>📸 Deteksi langsung melalui live kamera</h3>
+                <p class="card-subtitle">Berikan izin akses kamera. Posisikan wajah Anda tepat di dalam <strong>Area Wajah (Kotak Biru)</strong> yang terlihat di layar kamera.</p>
+            </div>
+
+            <!-- Camera View -->
+            <div class="camera-container">
+                <div class="camera-view" id="cameraView">
+                    <video id="videoElement" autoplay playsinline></video>
+                    <canvas id="overlayCanvas"></canvas>
+                    <div class="camera-placeholder" id="cameraPlaceholder">
+                        <div class="placeholder-icon">📷</div>
+                        <p>Klik tombol di bawah untuk mengaktifkan kamera</p>
+                    </div>
+                </div>
+
+                <div class="camera-controls">
+                    <button class="btn btn-primary" id="btnStartCamera" onclick="startCamera()">
+                        🎥 Aktifkan Kamera
+                    </button>
+                    <button class="btn btn-capture" id="btnCapture" onclick="captureAndDetect()" disabled>
+                        📸 Capture & Deteksi
+                    </button>
+                    <button class="btn btn-secondary" id="btnStopCamera" onclick="stopCamera()" style="display:none;">
+                        ⏹ Matikan Kamera
+                    </button>
+                </div>
+            </div>
+
+            <!-- Hasil Camera -->
+            <div id="cameraResults" class="results-container" style="display: none;">
+                <div class="results-grid">
+                    <div class="result-col">
+                        <h4>Preview — Area di luar kotak diabaikan</h4>
+                        <img id="cameraPreview" class="result-image" alt="Preview">
+                    </div>
+                    <div class="result-col">
+                        <h4>Hasil Analisis</h4>
+                        <img id="cameraResult" class="result-image" alt="Hasil analisis">
+                    </div>
+                </div>
+                <div id="cameraDiagnosa" class="diagnosa-section"></div>
+            </div>
+        </div>
+
+        {% endif %}
+
+        <!-- Disclaimer -->
+        <hr class="divider">
+        <div class="disclaimer">
+            <strong>Pemberitahuan:</strong> Aplikasi skrining ini merupakan deteksi mandiri awal. 
+            Hasil pengujian tidak dapat dijadikan acuan secara medis bukan sebagai pengganti diagnosis klinis dokter mata.
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-card">
+            <div class="spinner"></div>
+            <p>Sistem sedang memetakan geometri mata Anda...</p>
+        </div>
+    </div>
+
+    <!-- Hidden canvas for frame capture -->
+    <canvas id="captureCanvas" style="display:none;"></canvas>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
