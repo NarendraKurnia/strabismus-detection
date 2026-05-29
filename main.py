@@ -60,6 +60,40 @@ st.markdown("""
         color: #4A3E3D;
         margin-bottom: 10px;
     }
+
+    /* === BOUNDING BOX OVERLAY pada Live Camera (via pseudo-elements) === */
+    /* Menarget elemen video kamera Streamlit secara langsung */
+    [data-testid="stCameraInput"] video,
+    [data-testid="stCameraInput"] img {
+        position: relative;
+    }
+    [data-testid="stCameraInput"] > div:first-child {
+        position: relative !important;
+    }
+    /* Kotak bounding box dashed cyan di atas video live */
+    [data-testid="stCameraInput"] > div:first-child::after {
+        content: "AREA WAJAH — Posisikan wajah di sini";
+        position: absolute;
+        top: 15%;
+        left: 25%;
+        width: 50%;
+        height: 70%;
+        border: 3px dashed #00FFFF;
+        border-radius: 12px;
+        z-index: 999;
+        pointer-events: none;
+        box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.3);
+        display: flex;
+        align-items: flex-start;
+        justify-content: flex-start;
+        padding: 8px 12px;
+        font-family: 'Poppins', sans-serif;
+        font-size: 12px;
+        font-weight: 700;
+        color: #00FFFF;
+        text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+        letter-spacing: 0.5px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -186,44 +220,47 @@ def tampilkan_hasil_diagnosa(status):
 # 7. Halaman Live Camera (Kompatibel Penuh Cloud, Mirror Mode, dan Area Wajah)
 def live_camera_page(detector, classifier):
     st.markdown('<div class="content-card"><h3>📸 Deteksi langsung melalui live kamera</h3>'
-                '<p style="color: #666; margin: 0;">Berikan izin akses kamera. Posisikan wajah Anda tepat di dalam <strong>Area Wajah (Kotak Teal)</strong>.</p></div>', unsafe_allow_html=True)
-    
-    # Input Kamera Browser Native
+                '<p style="color: #666; margin: 0;">Berikan izin akses kamera. Posisikan wajah Anda tepat di dalam '
+                '<strong>Area Wajah (Kotak Biru)</strong> yang terlihat di layar kamera.</p></div>', unsafe_allow_html=True)
+
+    # Input Kamera Browser Native — bounding box overlay diterapkan via CSS pseudo-element
     img_file = st.camera_input("Arahkan pandangan mata Anda lurus ke kamera")
-    
+
     if img_file is not None:
         # 1. Konversi ke Format OpenCV
         bytes_data = img_file.getvalue()
         cv_image = cv2.imdecode(np.frombuffer(bytes_data, np.uint8), cv2.IMREAD_COLOR)
-        
-        # 2. PERUBAHAN UTAMA: MIRROR MODE (Balik Horizontal)
-        # Menjadikan Live Cam terasa natural seperti cermin
+
+        # 2. MIRROR MODE (Balik Horizontal) — terasa natural seperti cermin
         cv_image_mirrored = cv2.flip(cv_image, 1)
-        
-    # 3. PERUBAHAN UTAMA: DETEKSI AREA WAJAH PADA PREVIEW
-        # Mendapatkan dimensi gambar untuk membuat overlay
+
+        # 3. Definisi Kotak Target Area Wajah (ROI)
         h, w = cv_image_mirrored.shape[:2]
-        cv_image_with_areas = cv_image_mirrored.copy()
-        
-        # Definisi Kotak Target Area Wajah (Teal) - Target posisi kepala
-        face_roi_w, face_roi_h = int(w * 0.5), int(h * 0.7) # Kotak wajah 50% lebar, 70% tinggi
-        face_roi_x, face_roi_y = (w - face_roi_w) // 2, (h - face_roi_h) // 2 # Centered
-        
-        # Menggambar Kotak Area Wajah (Teal)
-        cv2.rectangle(cv_image_with_areas, (face_roi_x, face_roi_y), 
-                      (face_roi_x + face_roi_w, face_roi_y + face_roi_h), (255, 255, 0), 4) # Teal/Cyan
-        cv2.putText(cv_image_with_areas, "AREA WAJAH", (face_roi_x + 10, face_roi_y + 35),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 0), 2, cv2.LINE_AA)
-        
+        face_roi_w, face_roi_h = int(w * 0.5), int(h * 0.7)
+        face_roi_x, face_roi_y = (w - face_roi_w) // 2, (h - face_roi_h) // 2
+
         # Layout Kolom Preview dan Hasil
         col1, col2 = st.columns(2)
         with col1:
-            # Menampilkan Preview berkotak (dan sudah di-mirror)
-            st.image(cv2.cvtColor(cv_image_with_areas, cv2.COLOR_BGR2RGB), caption="Preview", use_container_width=True)
-            
+            # Gambar preview DENGAN bounding box Area Wajah
+            cv_image_with_areas = cv_image_mirrored.copy()
+            # Gambar kotak Area Wajah (Teal/Cyan) dengan garis tegas
+            cv2.rectangle(cv_image_with_areas, (face_roi_x, face_roi_y),
+                          (face_roi_x + face_roi_w, face_roi_y + face_roi_h), (255, 255, 0), 3)
+            cv2.putText(cv_image_with_areas, "AREA WAJAH", (face_roi_x + 10, face_roi_y + 30),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2, cv2.LINE_AA)
+            # Overlay gelap di luar bounding box agar area deteksi jelas terlihat
+            overlay = cv_image_with_areas.copy()
+            mask = np.zeros((h, w), dtype=np.uint8)
+            mask[face_roi_y:face_roi_y + face_roi_h, face_roi_x:face_roi_x + face_roi_w] = 255
+            overlay[mask == 0] = (overlay[mask == 0] * 0.4).astype(np.uint8)
+            cv_image_with_areas = overlay
+
+            st.image(cv2.cvtColor(cv_image_with_areas, cv2.COLOR_BGR2RGB), caption="Preview — Area di luar kotak diabaikan", use_container_width=True)
+
         with col2:
             with st.spinner("Sistem sedang memetakan geometri mata Anda..."):
-                # Menjalankan Diagnosa hanya di dalam Area Wajah (ROI manual)
+                # Menjalankan Diagnosa HANYA di dalam Area Wajah (ROI)
                 roi_img = cv_image_mirrored[face_roi_y:face_roi_y + face_roi_h,
                                             face_roi_x:face_roi_x + face_roi_w]
 
@@ -239,10 +276,15 @@ def live_camera_page(detector, classifier):
                         d['box'][2] += face_roi_x
                         d['box'][3] += face_roi_y
 
-                # Menggambar hasil bounding box
+                # Menggambar hasil bounding box deteksi + Area Wajah pada gambar hasil
                 result_img = draw_boxes(cv_image_mirrored, detections)
+                # Tambahkan bounding box area wajah pada gambar hasil juga
+                cv2.rectangle(result_img, (face_roi_x, face_roi_y),
+                              (face_roi_x + face_roi_w, face_roi_y + face_roi_h), (255, 255, 0), 2)
+                cv2.putText(result_img, "AREA DETEKSI", (face_roi_x + 10, face_roi_y + 25),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2, cv2.LINE_AA)
                 st.image(cv2.cvtColor(result_img, cv2.COLOR_BGR2RGB), caption="Hasil Analisis", use_container_width=True)
-                
+
             tampilkan_hasil_diagnosa(status)
 
 # 8. Halaman Unggah File Foto
